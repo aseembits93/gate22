@@ -1,4 +1,3 @@
-import copy
 from typing import Any
 
 from aci.common.db.sql_models import VirtualMCPTool
@@ -16,44 +15,53 @@ def filter_visible_properties(parameters_schema: dict) -> dict:
     assumption here.
     """
 
-    # create a separate function to avoid deep copying the schema at each recursive call
     def filter(schema: dict) -> dict:
         # if the schema is not an object return the schema as is
         if schema.get("type") != "object":
             return schema
 
-        visible: list[str] | None = schema.pop(
-            "visible", None
-        )  # use pop to remove visible field itself
+        # Avoid pop, which is slower than get
+        visible: list[str] | None = schema.get("visible")
         properties: dict | None = schema.get("properties")
         required: list[str] | None = schema.get("required")
 
         # NOTE: if visible is not present, assume all properties are visible
         if visible is None:
-            visible = list(schema.get("properties", {}).keys())
+            visible = list(properties.keys()) if properties else []
 
         # only continue if properties are defined
         if properties is not None:
             # Filter properties to include only visible properties
-            filtered_properties = {
-                key: value for key, value in properties.items() if key in visible
-            }
+            filtered_properties = {}
+            for key in visible:
+                if key in properties:
+                    value = properties[key]
+                    filtered_properties[key] = filter(value)
 
             # if required is defined, update the required list to include only visible properties
             if required is not None:
-                schema["required"] = [key for key in required if key in visible]
+                # Use set for O(1) membership test
+                visible_set = set(visible)
+                schema["required"] = [key for key in required if key in visible_set]
 
-            # Recursively filter nested properties
-            for key, value in filtered_properties.items():
-                filtered_properties[key] = filter(value)
-
-            # Update the schema with filtered properties
             schema["properties"] = filtered_properties
+
+        # Always delete 'visible' if present; use del with check (faster than pop with default)
+        if "visible" in schema:
+            del schema["visible"]
 
         return schema
 
-    # Create a deep copy of the schema once
-    filtered_parameters_schema = copy.deepcopy(parameters_schema)
+    # A deep copy using copy.deepcopy is slow; custom copy is much faster for standard dict/list trees
+    def fast_deepcopy(obj):
+        if isinstance(obj, dict):
+            return {k: fast_deepcopy(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [fast_deepcopy(item) for item in obj]
+        else:
+            return obj
+
+    filtered_parameters_schema = fast_deepcopy(parameters_schema)
     return filter(filtered_parameters_schema)
 
 

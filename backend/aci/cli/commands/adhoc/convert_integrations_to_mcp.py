@@ -193,7 +193,7 @@ def _transform_no_auth(data: Any) -> dict[str, Any]:
 
 def _require_non_empty_string(data: dict[str, Any], key: str) -> str:
     value = data.get(key)
-    if not isinstance(value, str) or not value.strip():
+    if not isinstance(value, str) or not value or value.isspace():
         raise ValueError(f"Field '{key}' must be a non-empty string")
     return value
 

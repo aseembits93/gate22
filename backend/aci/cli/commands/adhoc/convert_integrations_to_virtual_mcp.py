@@ -63,11 +63,17 @@ def _transform_app(app_data: Any) -> dict[str, Any]:
     if not isinstance(app_data, dict):
         raise ValueError("app.json must contain a JSON object")
 
-    missing_fields = [field for field in ("name", "description") if field not in app_data]
-    if missing_fields:
-        raise ValueError(f"app.json missing required fields: {', '.join(missing_fields)}")
+    try:
+        name = app_data["name"]
+    except KeyError:
+        raise ValueError("app.json missing required fields: name")
 
-    return {"name": app_data["name"], "description": app_data["description"]}
+    try:
+        description = app_data["description"]
+    except KeyError:
+        raise ValueError("app.json missing required fields: description")
+
+    return {"name": name, "description": description}
 
 
 def _transform_functions(functions_data: Any) -> list[dict[str, Any]]:

@@ -186,7 +186,8 @@ def _transform_api_key(data: Any) -> dict[str, Any]:
 
 
 def _transform_no_auth(data: Any) -> dict[str, Any]:
-    if data not in (None, {}):
+    # Use identity checks and dict emptiness more efficiently than tuple containment
+    if data is not None and (not isinstance(data, dict) or data):
         raise ValueError("no_auth configuration must be empty")
     return {"type": "no_auth"}
 

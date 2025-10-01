@@ -76,10 +76,13 @@ class InterceptorMiddleware(BaseHTTPMiddleware):
         x_forwarded_for = request.headers.get("X-Forwarded-For")
         if x_forwarded_for is not None:
             # X-Forwarded-For is a list of IPs, the first one is the actual client IP
-            return x_forwarded_for.split(",")[0].strip()
-
+            # Use partition for efficiency if only the first IP is needed
+            ip, _, _ = x_forwarded_for.partition(",")
+            return ip.strip()
         else:
-            return request.client.host if request.client else "unknown"
+            # Avoid double attribute lookup by assigning once (faster in tight paths)
+            client = request.client
+            return client.host if client else "unknown"
 
 
 class RequestContextFilter(logging.Filter):

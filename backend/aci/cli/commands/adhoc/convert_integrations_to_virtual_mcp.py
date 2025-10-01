@@ -75,26 +75,33 @@ def _transform_functions(functions_data: Any) -> list[dict[str, Any]]:
         raise ValueError("functions.json must contain a JSON array")
 
     transformed_tools: list[dict[str, Any]] = []
+    append = transformed_tools.append  # localize for performance
     for item in functions_data:
         if not isinstance(item, dict):
             raise ValueError("Each entry in functions.json must be a JSON object")
-        transformed_tools.append(_transform_function(item))
-
+        append(_transform_function(item))
     return transformed_tools
 
 
 def _transform_function(function_data: dict[str, Any]) -> dict[str, Any]:
-    name = function_data.get("name")
-    description = function_data.get("description")
-    if not name or not description:
+    # Fast-path dict access
+    try:
+        name = function_data["name"]
+        description = function_data["description"]
+    except KeyError:
         raise ValueError("Each function must include 'name' and 'description'")
 
+    # Only use .get for optional fields
     protocol = function_data.get("protocol")
-    protocol_data = function_data.get("protocol_data") or {}
+    protocol_data = function_data.get("protocol_data")
+    if protocol_data is None:
+        protocol_data = {}
+
     tool_metadata = _build_tool_metadata(protocol, protocol_data)
 
-    parameters = function_data.get("parameters")
-    if parameters is None:
+    try:
+        parameters = function_data["parameters"]
+    except KeyError:
         raise ValueError(f"Function '{name}' is missing 'parameters'")
 
     return {

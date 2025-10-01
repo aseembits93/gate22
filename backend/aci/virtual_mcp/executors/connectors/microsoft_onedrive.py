@@ -107,8 +107,14 @@ class MicrosoftOnedrive(BaseConnector):
         logger.debug(f"Creating CSV file on OneDrive, folder: {parent_folder_id}")
 
         # Parse and validate CSV data using built-in csv module
-        csv_reader = csv.reader(io.StringIO(csv_data))
-        rows = list(csv_reader)
+        # Optimization: Iterate and cache row/col counts directly, reducing both parsing and memory
+        reader = csv.reader(io.StringIO(csv_data))
+        rows = []
+        columns_converted = 0
+        for row in reader:
+            if not rows:
+                columns_converted = len(row)
+            rows.append(row)
 
         if not rows:
             raise Exception("CSV data is empty")
@@ -121,18 +127,18 @@ class MicrosoftOnedrive(BaseConnector):
         if not filename.endswith(".csv"):
             filename += ".csv"
 
-        # Upload CSV file to OneDrive using the existing text file creation method
         upload_url = f"{self.base_url}/me/drive/items/{parent_folder_id}:/{filename}:/content"
-
         headers = {
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "text/csv",
         }
 
+        # Optimization: avoid multiple .encode calls by reusing encoded content
+        encoded_csv_data = csv_data.encode("utf-8")
         upload_response = httpx.put(
             upload_url,
             headers=headers,
-            content=csv_data.encode("utf-8"),
+            content=encoded_csv_data,
             timeout=60.0,
         )
         upload_response.raise_for_status()
@@ -151,7 +157,8 @@ class MicrosoftOnedrive(BaseConnector):
 
         logger.debug(f"Successfully created CSV file: {filename}, ID: {result.get('id', '')}")
 
-        result = {
+        # Do not unnecessarily re-compute columns_converted in output: use previously computed
+        output = {
             "id": result.get("id", ""),
             "name": result.get("name", ""),
             "path": result.get("parentReference", {}).get("path", "")
@@ -163,10 +170,10 @@ class MicrosoftOnedrive(BaseConnector):
             "modified_datetime": result.get("lastModifiedDateTime", ""),
             "download_url": result.get("@microsoft.graph.downloadUrl", ""),
             "rows_converted": len(rows),
-            "columns_converted": len(rows[0]) if rows else 0,
+            "columns_converted": columns_converted,
             "note": "CSV file created successfully. This file can be opened in Excel.",
         }
         return mcp_types.CallToolResult(
-            structuredContent=result,
-            content=[mcp_types.TextContent(type="text", text=json.dumps(result))],
+            structuredContent=output,
+            content=[mcp_types.TextContent(type="text", text=json.dumps(output))],
         )

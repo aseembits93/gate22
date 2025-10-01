@@ -76,18 +76,27 @@ def get_mcp_server_configurations_by_ids(
     if not mcp_server_configuration_ids:
         return []
 
+    # Use set for faster lookup in SQL WHERE IN and in the filter below,
+    # and deduplicate incoming UUIDs to avoid repeated lookups.
+    mcp_server_configuration_ids_set = set(mcp_server_configuration_ids)
+
+    # Only unique IDs are sent to the SQL query, which reduces DB work.
     statement = select(MCPServerConfiguration).where(
-        MCPServerConfiguration.id.in_(mcp_server_configuration_ids)
+        MCPServerConfiguration.id.in_(mcp_server_configuration_ids_set)
     )
 
-    # make sure the results are in the same order as the mcp_server_configuration_ids
-    results = list(db_session.execute(statement).scalars().all())
-    # map the rows by id, and use the order of requested ids to map the final results
+    # Avoid unnecessary conversion to list; scalars().all() already returns a list.
+    results = db_session.execute(statement).scalars().all()
+
+    # Build mapping of object by id in O(n).
     results_by_id = {result.id: result for result in results}
+
+    # Fetch results in input order; skip missing ones as before
+    # Avoid repeated "in" lookup by using get
     return [
-        results_by_id[mcp_server_configuration_id]
-        for mcp_server_configuration_id in mcp_server_configuration_ids
-        if mcp_server_configuration_id in results_by_id
+        obj
+        for id_ in mcp_server_configuration_ids
+        if (obj := results_by_id.get(id_)) is not None
     ]
 
 

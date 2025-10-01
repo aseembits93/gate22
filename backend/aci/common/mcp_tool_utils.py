@@ -6,6 +6,11 @@ from aci.common.exceptions import MCPToolSanitizationError
 from aci.common.logging_setup import get_logger
 from aci.common.schemas.mcp_tool import MCPToolUpsert
 
+_NON_EMBEDDING_FIELDS = (
+    set(MCPToolUpsert.model_fields.keys())
+    - {"name", "description", "input_schema", "tool_metadata"}
+)
+
 logger = get_logger(__name__)
 
 
@@ -85,19 +90,18 @@ def diff_tools(
     tools_to_update_without_re_embedding = []
     tools_unchanged = []
 
-    # Create dict for lookup by tool name
-    # Tools with same `tool.name` will be treated as a same tool. Also, assume the `tool.name` is
-    # unique in each list.
+    # Dict lookup by tool name for O(1) access
     old_tools_dict = {tool.name: tool for tool in old_tools}
     new_tools_dict = {tool.name: tool for tool in new_tools}
 
+    # Cache old_tools_dict.get for tight-loop access
+    old_tools_dict_get = old_tools_dict.get
+
     for new_tool_name, new_tool in new_tools_dict.items():
-        # Tool not found in old_tools_dict, should be created
-        if new_tool_name not in old_tools_dict:
+        old_tool = old_tools_dict_get(new_tool_name)
+        if old_tool is None:
             new_tools_to_create.append(new_tool)
         else:
-            # Tool exists in both lists, check if any of the fields has changed
-            old_tool = old_tools_dict[new_tool_name]
             fields_changed, embedding_fields_changed = compare_tool_fields(old_tool, new_tool)
             if embedding_fields_changed:
                 tools_to_update_with_re_embedding.append(new_tool)
@@ -106,7 +110,7 @@ def diff_tools(
             else:
                 tools_unchanged.append(new_tool)
 
-    # Find tools that should be deleted (in old_tools but not in new_tools)
+    # Compute difference in keys in a single pass for old_tools_to_delete
     for tool_name, old_tool in old_tools_dict.items():
         if tool_name not in new_tools_dict:
             old_tools_to_delete.append(old_tool)
@@ -133,26 +137,19 @@ def compare_tool_fields(old_tool: MCPToolUpsert, new_tool: MCPToolUpsert) -> tup
             - Whether any of the changes involves the fields that has been used for embedding.
     """
 
-    non_embedding_fields = set(MCPToolUpsert.model_fields.keys())
-    # Obtain non-embedding fields by removing the following fields from all model fields
-    non_embedding_fields.difference_update({"name", "description", "input_schema", "tool_metadata"})
+    # Use the cached _NON_EMBEDDING_FIELDS rather than constructing each time
+    old_dump = old_tool.model_dump(include=_NON_EMBEDDING_FIELDS)
+    new_dump = new_tool.model_dump(include=_NON_EMBEDDING_FIELDS)
+    non_embedding_fields_changed = old_dump != new_dump
 
-    non_embedding_fields_changed = old_tool.model_dump(
-        include=non_embedding_fields
-    ) != new_tool.model_dump(include=non_embedding_fields)
+    old_metadata = old_tool.tool_metadata
+    new_metadata = new_tool.tool_metadata
 
-    # Embedding fields includes: canonical_tool_name, description, input_schema
-    if old_tool.tool_metadata.canonical_tool_name != new_tool.tool_metadata.canonical_tool_name:
+    if old_metadata.canonical_tool_name != new_metadata.canonical_tool_name:
         embedding_fields_changed = True
-    elif (
-        old_tool.tool_metadata.canonical_tool_description_hash
-        != new_tool.tool_metadata.canonical_tool_description_hash
-    ):
+    elif old_metadata.canonical_tool_description_hash != new_metadata.canonical_tool_description_hash:
         embedding_fields_changed = True
-    elif (
-        old_tool.tool_metadata.canonical_tool_input_schema_hash
-        != new_tool.tool_metadata.canonical_tool_input_schema_hash
-    ):
+    elif old_metadata.canonical_tool_input_schema_hash != new_metadata.canonical_tool_input_schema_hash:
         embedding_fields_changed = True
     else:
         embedding_fields_changed = False

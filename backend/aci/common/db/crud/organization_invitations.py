@@ -105,8 +105,9 @@ def update_invitation(
     invitation: OrganizationInvitation,
     invitation_update: OrganizationInvitationUpdate,
 ) -> OrganizationInvitation:
-    for field, value in invitation_update.model_dump(exclude_unset=True).items():
-        setattr(invitation, field, value)
+    update_data = invitation_update.model_dump(exclude_unset=True)
+    if update_data:
+        invitation.__dict__.update(update_data)
 
     db_session.flush()
     db_session.refresh(invitation)

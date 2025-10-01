@@ -117,13 +117,20 @@ def _build_tool_metadata(protocol: Any, protocol_data: Any) -> dict[str, Any]:
         method = protocol_data.get("method")
         path = protocol_data.get("path")
         server_url = protocol_data.get("server_url")
-        missing = [
-            field for field in ("method", "path", "server_url") if not protocol_data.get(field)
-        ]
+        missing = []
+        if not method:
+            missing.append("method")
+        if not path:
+            missing.append("path")
+        if not server_url:
+            missing.append("server_url")
         if missing:
             raise ValueError("protocol_data for rest protocol must include: " + ", ".join(missing))
-        endpoint = _merge_url(server_url, path)
-        metadata.update({"method": method, "endpoint": endpoint})
+        if not isinstance(server_url, str) or not isinstance(path, str):
+            raise ValueError("server_url and path must be strings")
+        endpoint = f"{server_url}{path}"
+        metadata["method"] = method
+        metadata["endpoint"] = endpoint
 
     return metadata
 

@@ -133,13 +133,21 @@ def compare_tool_fields(old_tool: MCPToolUpsert, new_tool: MCPToolUpsert) -> tup
             - Whether any of the changes involves the fields that has been used for embedding.
     """
 
-    non_embedding_fields = set(MCPToolUpsert.model_fields.keys())
-    # Obtain non-embedding fields by removing the following fields from all model fields
-    non_embedding_fields.difference_update({"name", "description", "input_schema", "tool_metadata"})
+    if not hasattr(MCPToolUpsert, "_NON_EMBEDDING_FIELDS"):
+        non_embedding_fields = set(MCPToolUpsert.model_fields.keys())
+        # Obtain non-embedding fields by removing the following fields from all model fields
+        non_embedding_fields.difference_update({"name", "description", "input_schema", "tool_metadata"})
+        MCPToolUpsert._NON_EMBEDDING_FIELDS = non_embedding_fields
 
-    non_embedding_fields_changed = old_tool.model_dump(
-        include=non_embedding_fields
-    ) != new_tool.model_dump(include=non_embedding_fields)
+    non_embedding_fields = MCPToolUpsert._NON_EMBEDDING_FIELDS
+
+    old_vals = old_tool.__dict__
+    new_vals = new_tool.__dict__
+    non_embedding_fields_changed = False
+    for field in non_embedding_fields:
+        if old_vals.get(field) != new_vals.get(field):
+            non_embedding_fields_changed = True
+            break
 
     # Embedding fields includes: canonical_tool_name, description, input_schema
     if old_tool.tool_metadata.canonical_tool_name != new_tool.tool_metadata.canonical_tool_name:

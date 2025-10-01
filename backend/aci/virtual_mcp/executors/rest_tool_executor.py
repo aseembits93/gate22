@@ -168,6 +168,9 @@ class RestFunctionExecutor(ToolExecutor):
         HTTPStatusError. Usually the response json contains more details about the error.
         """
         try:
-            return str(response.json())
+            ct = response.headers.get("content-type", "")
+            if "json" in ct:
+                return str(response.json())
         except Exception:
-            return str(error)
+            pass
+        return str(error)

@@ -1,4 +1,3 @@
-import copy
 from typing import Any
 
 from aci.common.db.sql_models import VirtualMCPTool
@@ -16,7 +15,37 @@ def filter_visible_properties(parameters_schema: dict) -> dict:
     assumption here.
     """
 
-    # create a separate function to avoid deep copying the schema at each recursive call
+    # Use iterative deep copy specialized for this schema's tree structure
+    def _fast_deepcopy(schema: dict) -> dict:
+        # Stack of (src, dst)
+        stack = []
+        # If not a dict, just return
+        if not isinstance(schema, dict):
+            return schema
+        root = schema.copy()
+        stack.append((schema, root))
+        while stack:
+            src, dst = stack.pop()
+            for key, value in src.items():
+                if isinstance(value, dict):
+                    value_copy = value.copy()
+                    dst[key] = value_copy
+                    stack.append((value, value_copy))
+                elif isinstance(value, list):
+                    # Only deep copy lists if necessary
+                    out = []
+                    for item in value:
+                        if isinstance(item, dict):
+                            item_copy = item.copy()
+                            out.append(item_copy)
+                            stack.append((item, item_copy))
+                        else:
+                            out.append(item)
+                    dst[key] = out
+                else:
+                    dst[key] = value
+        return root
+
     def filter(schema: dict) -> dict:
         # if the schema is not an object return the schema as is
         if schema.get("type") != "object":
@@ -30,30 +59,30 @@ def filter_visible_properties(parameters_schema: dict) -> dict:
 
         # NOTE: if visible is not present, assume all properties are visible
         if visible is None:
-            visible = list(schema.get("properties", {}).keys())
+            visible = list(properties.keys()) if properties is not None else []
 
         # only continue if properties are defined
         if properties is not None:
+            visible_set = set(visible)
             # Filter properties to include only visible properties
             filtered_properties = {
-                key: value for key, value in properties.items() if key in visible
+                key: value for key, value in properties.items() if key in visible_set
             }
 
             # if required is defined, update the required list to include only visible properties
             if required is not None:
-                schema["required"] = [key for key in required if key in visible]
+                schema["required"] = [key for key in required if key in visible_set]
 
             # Recursively filter nested properties
-            for key, value in filtered_properties.items():
-                filtered_properties[key] = filter(value)
+            for key in filtered_properties:
+                filtered_properties[key] = filter(filtered_properties[key])
 
             # Update the schema with filtered properties
             schema["properties"] = filtered_properties
 
         return schema
 
-    # Create a deep copy of the schema once
-    filtered_parameters_schema = copy.deepcopy(parameters_schema)
+    filtered_parameters_schema = _fast_deepcopy(parameters_schema)
     return filter(filtered_parameters_schema)
 
 

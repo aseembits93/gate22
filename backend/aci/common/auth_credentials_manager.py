@@ -294,10 +294,11 @@ def _need_refresh(auth_credentials: AuthCredentials, leeway_seconds: int = 60) -
     """
 
     # TODO: api key based auth credentials can also expire
-    if isinstance(auth_credentials.root, OAuth2Credentials):
+    root = auth_credentials.root
+    if type(root) is OAuth2Credentials:
         return (
-            auth_credentials.root.expires_at is not None
-            and auth_credentials.root.expires_at < int(time.time()) + leeway_seconds
+            root.expires_at is not None
+            and root.expires_at < int(time.time()) + leeway_seconds
         )
     return False
 

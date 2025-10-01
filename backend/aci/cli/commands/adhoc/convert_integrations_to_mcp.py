@@ -93,12 +93,10 @@ def _coerce_categories(value: Any) -> list[str]:
         return []
     if not isinstance(value, list):
         raise ValueError("Field 'categories' must be an array of strings")
-    categories: list[str] = []
     for item in value:
         if not isinstance(item, str) or not item.strip():
             raise ValueError("Each category must be a non-empty string")
-        categories.append(item)
-    return categories
+    return value.copy() if value else []
 
 
 def _transform_security_schemes(value: Any) -> list[dict[str, Any]]:

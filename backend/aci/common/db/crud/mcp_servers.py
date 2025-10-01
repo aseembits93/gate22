@@ -90,8 +90,8 @@ def update_mcp_server(
 ) -> MCPServer:
     new_mcp_server_data = mcp_server_upsert.model_dump(mode="json", exclude_unset=True)
 
-    for field, value in new_mcp_server_data.items():
-        setattr(mcp_server, field, value)
+    if new_mcp_server_data:
+        mcp_server.__dict__.update(new_mcp_server_data)
 
     if embedding:
         mcp_server.embedding = embedding

@@ -6,6 +6,10 @@ from aci.common.exceptions import MCPToolSanitizationError
 from aci.common.logging_setup import get_logger
 from aci.common.schemas.mcp_tool import MCPToolUpsert
 
+_NON_ALNUM_UNDERSCORE_RE = re.compile(r"[^A-Z0-9_]")
+
+_MULTI_UNDERSCORE_RE = re.compile(r"_+")
+
 logger = get_logger(__name__)
 
 
@@ -40,10 +44,10 @@ def sanitize_canonical_name(canonical_name: str) -> str:
     sanitized = canonical_name.upper()
 
     # Replace any non-alphanumeric characters (except underscores) with underscores
-    sanitized = re.sub(r"[^A-Z0-9_]", "_", sanitized)
+    sanitized = _NON_ALNUM_UNDERSCORE_RE.sub("_", sanitized)
 
     # Remove consecutive underscores by replacing multiple underscores with single underscore
-    sanitized = re.sub(r"_+", "_", sanitized)
+    sanitized = _MULTI_UNDERSCORE_RE.sub("_", sanitized)
 
     # Remove leading and trailing underscores
     sanitized = sanitized.strip("_")

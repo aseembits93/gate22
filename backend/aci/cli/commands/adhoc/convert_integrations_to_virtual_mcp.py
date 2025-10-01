@@ -90,13 +90,15 @@ def _transform_function(function_data: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Each function must include 'name' and 'description'")
 
     protocol = function_data.get("protocol")
-    protocol_data = function_data.get("protocol_data") or {}
+    # Avoid dict() allocation if "protocol_data" is not present
+    protocol_data = function_data["protocol_data"] if "protocol_data" in function_data else {}
     tool_metadata = _build_tool_metadata(protocol, protocol_data)
 
     parameters = function_data.get("parameters")
     if parameters is None:
         raise ValueError(f"Function '{name}' is missing 'parameters'")
 
+    # Construct output dict in one step
     return {
         "name": name,
         "description": description,
@@ -109,23 +111,34 @@ def _build_tool_metadata(protocol: Any, protocol_data: Any) -> dict[str, Any]:
     if protocol not in {"connector", "rest"}:
         raise ValueError(f"Unsupported protocol '{protocol}'")
 
-    metadata: dict[str, Any] = {"type": protocol}
-
     if protocol == "rest":
-        if not isinstance(protocol_data, dict):
+        # Fast path: immediately fail if not correct type (skip falsey check)
+        if type(protocol_data) is not dict:
             raise ValueError("protocol_data must be an object for rest protocol")
+
+        # Extract all necessary fields at once, avoids repeated .get lookups below
         method = protocol_data.get("method")
         path = protocol_data.get("path")
         server_url = protocol_data.get("server_url")
-        missing = [
-            field for field in ("method", "path", "server_url") if not protocol_data.get(field)
-        ]
+
+        # Avoid generator and repeated .get calls for 'missing'
+        missing = []
+        if not method:
+            missing.append("method")
+        if not path:
+            missing.append("path")
+        if not server_url:
+            missing.append("server_url")
         if missing:
             raise ValueError("protocol_data for rest protocol must include: " + ", ".join(missing))
-        endpoint = _merge_url(server_url, path)
-        metadata.update({"method": method, "endpoint": endpoint})
 
-    return metadata
+        # _merge_url is imported from the CLI module, preserved as required
+        endpoint = _merge_url(server_url, path)
+        # Build dict only with required keys
+        return {"type": "rest", "method": method, "endpoint": endpoint}
+
+    # handle "connector" case (no additional keys needed)
+    return {"type": protocol}
 
 
 def _merge_url(server_url: Any, path: Any) -> str:

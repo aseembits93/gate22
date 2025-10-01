@@ -129,10 +129,10 @@ def _build_tool_metadata(protocol: Any, protocol_data: Any) -> dict[str, Any]:
 
 
 def _merge_url(server_url: Any, path: Any) -> str:
-    if not isinstance(server_url, str) or not isinstance(path, str):
+    if type(server_url) is not str or type(path) is not str:
         raise ValueError("server_url and path must be strings")
 
-    return f"{server_url}{path}"
+    return server_url + path
 
 
 def _write_json(path: Path, payload: Any) -> None:

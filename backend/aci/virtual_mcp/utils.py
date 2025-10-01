@@ -88,9 +88,9 @@ def inject_required_but_invisible_defaults(parameters_schema: dict, input_data: 
 
 
 def remove_none_values(data: Any) -> Any:
-    if isinstance(data, dict):
+    if type(data) is dict:
         return {k: remove_none_values(v) for k, v in data.items() if v is not None}
-    elif isinstance(data, list):
+    elif type(data) is list:
         return [remove_none_values(item) for item in data if item is not None]
     else:
         return data

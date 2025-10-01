@@ -125,14 +125,36 @@ def _transform_oauth2(data: Any) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError("OAuth2 configuration must be an object")
 
+    # Inline variables to reduce function call overhead and repeated lookups
+    client_id = data.get("client_id")
+    client_secret = data.get("client_secret")
+    scope = data.get("scope")
+    authorize_url = data.get("authorize_url")
+    access_token_url = data.get("access_token_url")
+    refresh_token_url = data.get("refresh_token_url")
+
+    # _require_non_empty_string and _require_string logic inlined for hot fields
+    if not isinstance(client_id, str) or not client_id.strip():
+        raise ValueError("Field 'client_id' must be a non-empty string")
+    if not isinstance(client_secret, str) or not client_secret.strip():
+        raise ValueError("Field 'client_secret' must be a non-empty string")
+    if not isinstance(scope, str):
+        raise ValueError("Field 'scope' must be a string")
+    if not isinstance(authorize_url, str) or not authorize_url.strip():
+        raise ValueError("Field 'authorize_url' must be a non-empty string")
+    if not isinstance(access_token_url, str) or not access_token_url.strip():
+        raise ValueError("Field 'access_token_url' must be a non-empty string")
+    if not isinstance(refresh_token_url, str) or not refresh_token_url.strip():
+        raise ValueError("Field 'refresh_token_url' must be a non-empty string")
+
     result: dict[str, Any] = {
         "type": "oauth2",
-        "client_id": _require_non_empty_string(data, "client_id"),
-        "client_secret": _require_non_empty_string(data, "client_secret"),
-        "scope": _require_string(data, "scope"),
-        "authorize_url": _require_non_empty_string(data, "authorize_url"),
-        "access_token_url": _require_non_empty_string(data, "access_token_url"),
-        "refresh_token_url": _require_non_empty_string(data, "refresh_token_url"),
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "scope": scope,
+        "authorize_url": authorize_url,
+        "access_token_url": access_token_url,
+        "refresh_token_url": refresh_token_url,
     }
 
     location = data.get("location")

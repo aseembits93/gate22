@@ -20,8 +20,9 @@ from aci.common.schemas.auth import (
 
 
 def check_and_get_env_variable(name: str, default: str | None = None) -> str:
-    value = os.getenv(name)
-    if value is None:
+    try:
+        value = os.environ[name]
+    except KeyError:
         if default is None:
             raise ValueError(f"Environment variable '{name}' is not set")
         return default

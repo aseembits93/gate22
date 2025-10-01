@@ -25,24 +25,30 @@ def check_act_as_organization_role(
     This function throws an NotPermittedError if the user is not permitted to act as the requested
     organization and role.
     """
-    try:
-        if requested_organization_id and act_as.organization_id != requested_organization_id:
-            raise NotPermittedError(
-                message=f"ActAs organization_id {act_as.organization_id} does not match the "
-                f"requested organization_id {requested_organization_id}"
-            )
-        if required_role == OrganizationRole.ADMIN and act_as.role != OrganizationRole.ADMIN:
-            raise NotPermittedError(
-                message=f"ActAs role {act_as.role} is not permitted to perform this action. "
-                f"Required role: {required_role}"
-            )
-    except NotPermittedError as e:
-        logger.error(f"NotPermittedError: {e.message}")
-        if throw_error_if_not_permitted:
-            raise e
-        return False
+    if (
+        (not requested_organization_id or act_as.organization_id == requested_organization_id)
+        and (
+            required_role != OrganizationRole.ADMIN
+            or act_as.role == OrganizationRole.ADMIN
+        )
+    ):
+        return True
 
-    return True
+    if requested_organization_id and act_as.organization_id != requested_organization_id:
+        e = NotPermittedError(
+            message=f"ActAs organization_id {act_as.organization_id} does not match the "
+            f"requested organization_id {requested_organization_id}"
+        )
+    else:
+        e = NotPermittedError(
+            message=f"ActAs role {act_as.role} is not permitted to perform this action. "
+            f"Required role: {required_role}"
+        )
+
+    logger.error(f"NotPermittedError: {e.message}")
+    if throw_error_if_not_permitted:
+        raise e
+    return False
 
 
 def check_mcp_server_config_accessibility(

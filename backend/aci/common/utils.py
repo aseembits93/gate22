@@ -3,7 +3,7 @@ import os
 import re
 import secrets
 import string
-from functools import cache
+from functools import lru_cache, cache
 from uuid import UUID
 
 import bcrypt
@@ -144,8 +144,7 @@ def format_duration_from_minutes(minutes: int) -> str:
     Convert a duration in minutes into a friendly human-readable label.
     Uses the humanize library for consistent and localized formatting.
     """
-    delta = datetime.timedelta(minutes=minutes)
-    return humanize.naturaldelta(delta)
+    return _cached_naturaldelta(minutes)
 
 
 def generate_alphanumeric_string(
@@ -157,3 +156,8 @@ def generate_alphanumeric_string(
         "ABCDE" / string.digits + string.ascii_uppercase / string.ascii_letters
     """
     return "".join(secrets.choice(character_pool) for _ in range(length))
+
+@lru_cache(maxsize=512)
+def _cached_naturaldelta(minutes: int) -> str:
+    delta = datetime.timedelta(minutes=minutes)
+    return humanize.naturaldelta(delta)

@@ -62,12 +62,19 @@ def inject_required_but_invisible_defaults(parameters_schema: dict, input_data: 
     Recursively injects required but invisible properties with their default values
     into the input data.
     """
-    for prop, subschema in parameters_schema.get("properties", {}).items():
+    properties = parameters_schema.get("properties")
+    if not properties:
+        return input_data
+
+    required_set = set(parameters_schema.get("required", []))
+    visible_set = set(parameters_schema.get("visible", []))
+
+    for prop, subschema in properties.items():
         # check if the property is not set by user and is required but invisible
         if (
             prop not in input_data
-            and prop in parameters_schema.get("required", [])
-            and prop not in parameters_schema.get("visible", [])
+            and prop in required_set
+            and prop not in visible_set
         ):
             # check if it has a default value, which should exist for non-object types
             if "default" in subschema:

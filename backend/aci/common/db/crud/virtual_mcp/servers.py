@@ -51,8 +51,11 @@ def update_server(
     vms_upsert: VirtualMCPServerUpsert,
 ) -> VirtualMCPServer:
     vms_data = vms_upsert.model_dump(mode="json", exclude_none=True)
+    # Use vms.__dict__ for faster setattr-like bulk updates
+    vms_dict = vms.__dict__
     for field, value in vms_data.items():
-        setattr(vms, field, value)
+        vms_dict[field] = value
+
     db_session.flush()
     db_session.refresh(vms)
     return vms

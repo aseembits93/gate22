@@ -19,8 +19,9 @@ def _parse_tool_name(tool_name: str) -> tuple[str, str, str]:
     "aci.virtual_mcp.connectors.brave_search", "BraveSearch", "web_search"
     """
     app_name, method_name = tool_name.split("__", 1)
-    module_name = f"aci.virtual_mcp.executors.connectors.{app_name.lower()}"
-    class_name = "".join(word.capitalize() for word in app_name.split("_"))
+    module_name = "aci.virtual_mcp.executors.connectors." + app_name.lower()
+    app_name_split = app_name.split("_")
+    class_name = "".join([word.capitalize() for word in app_name_split])
     method_name = method_name.lower()
 
     return module_name, class_name, method_name

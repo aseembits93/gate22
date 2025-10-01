@@ -167,8 +167,12 @@ def _transform_api_key(data: Any) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError("API key configuration must be an object")
 
-    location = _require_non_empty_string(data, "location")
-    name = _require_non_empty_string(data, "name")
+    location = data.get("location")
+    name = data.get("name")
+    if not isinstance(location, str) or not location.strip():
+        raise ValueError("Field 'location' must be a non-empty string")
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("Field 'name' must be a non-empty string")
 
     result: dict[str, Any] = {
         "type": "api_key",
